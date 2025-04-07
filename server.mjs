@@ -16,7 +16,7 @@ const db = new Low(adapter, defaultData);
 await db.read();
 
 const app = express();
-const PORT = 9000; // Postman 스크린샷에 8085로 되어 있지만, 에러 메시지에 9000으로 되어 있어 수정했습니다.
+const PORT = 9000;
 
 app.use(bodyParser.json());
 
