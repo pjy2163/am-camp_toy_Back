@@ -4,6 +4,8 @@ import { Low } from "lowdb";
 import { JSONFile } from "lowdb/node";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
+import cors from "cors";
+import fetch from "node-fetch";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -18,9 +20,78 @@ await db.read();
 const app = express();
 const PORT = 9000;
 
+app.use(cors());
 app.use(bodyParser.json());
 
-// 회원가입 API
+app.post("/github/callback", async (req, res) => {
+  const { code } = req.body;
+
+  if (!code) {
+    return res.status(400).json({ success: false, error: "code가 없습니다." });
+  }
+
+  try {
+    // 1. code → access_token 교환
+    const tokenRes = await fetch(
+      "https://github.com/login/oauth/access_token",
+      {
+        method: "POST",
+        headers: { Accept: "application/json" },
+        body: new URLSearchParams({
+          client_id: "Ov23lilEFmixYGI69GW6",
+          client_secret: "6a2b92ebaf46d324275e1c91f22398d4f7a0fbc4",
+          code,
+        }),
+      }
+    );
+
+    const tokenData = await tokenRes.json();
+    const accessToken = tokenData.access_token;
+
+    if (!accessToken) {
+      return res.status(401).json({ success: false, error: "토큰 없음" });
+    }
+
+    // 2. access_token으로 사용자 정보 요청
+    const userRes = await fetch("https://api.github.com/user", {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    const githubUser = await userRes.json();
+
+    // 여기서 사용자 정보를 local DB에 저장하거나 로그인 처리
+    const existingUser = db.data.users.find(
+      (u) => u.username === githubUser.login
+    );
+
+    let user;
+    if (existingUser) {
+      user = existingUser;
+    } else {
+      user = {
+        id: Date.now(),
+        username: githubUser.login,
+        email: githubUser.email || "",
+        password: "", // 소셜 로그인이라 비워둠
+        nickname: githubUser.name || githubUser.login,
+      };
+      db.data.users.push(user);
+      await db.write();
+    }
+
+    res.json({
+      success: true,
+      user: {
+        id: user.id,
+        nickname: user.nickname,
+        username: user.username,
+        logintype: user.logintype,
+      },
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, error: "서버 오류" });
+  }
+});
 app.post("/register", async (req, res) => {
   const { username, email, password, nickname } = req.body;
 
@@ -28,7 +99,6 @@ app.post("/register", async (req, res) => {
     return res.status(400).json({ error: "모든 필드를 입력해주세요." });
   }
 
-  // 이미 존재하는 아이디 또는 이메일 확인
   const existingUser = db.data.users.find(
     (user) => user.username === username || user.email === email
   );
@@ -44,7 +114,6 @@ app.post("/register", async (req, res) => {
   res.status(201).json({ message: "회원가입 성공" });
 });
 
-// 로그인 API
 app.get("/login", async (req, res) => {
   const { username, password } = req.query;
 
@@ -59,9 +128,10 @@ app.get("/login", async (req, res) => {
   );
 
   if (user) {
+    //const { password: _, ...safeUser } = user; // 비밀번호 제외
     res.json({
       message: "로그인 성공",
-      userId: user.id,
+      user: user.id,
       nickname: user.nickname,
     });
   } else {
