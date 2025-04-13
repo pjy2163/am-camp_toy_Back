@@ -6,6 +6,22 @@ import { fileURLToPath } from "url";
 import { dirname, join } from "path";
 import cors from "cors";
 import fetch from "node-fetch";
+import dotenv from "dotenv";
+import authRoutes from "./routes/auth.js";
+import cookieParser from "cookie-parser";
+import { log } from "console";
+
+dotenv.config();
+const app = express();
+app.use(cors({ origin: "http://localhost:3000", credentials: true })); //+쿠키관련
+app.use(bodyParser.json());
+
+app.use(express.json());
+app.use(cookieParser());
+app.use("/auth", authRoutes);
+app.listen(9000, () => {
+  console.log("서버실행중");
+});
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -17,11 +33,7 @@ const db = new Low(adapter, defaultData);
 
 await db.read();
 
-const app = express();
 const PORT = 9000;
-
-app.use(cors());
-app.use(bodyParser.json());
 
 app.post("/github/callback", async (req, res) => {
   const { code } = req.body;
