@@ -43,7 +43,7 @@ app.post("/github/callback", async (req, res) => {
   }
 
   try {
-    // 1. code → access_token 교환
+    // code → 토큰 교환
     const tokenRes = await fetch(
       "https://github.com/login/oauth/access_token",
       {
@@ -64,7 +64,7 @@ app.post("/github/callback", async (req, res) => {
       return res.status(401).json({ success: false, error: "토큰 없음" });
     }
 
-    // 2. access_token으로 사용자 정보 요청
+    // 토큰 사용자 정보 요청
     const userRes = await fetch("https://api.github.com/user", {
       headers: { Authorization: `Bearer ${accessToken}` },
     });
@@ -85,6 +85,7 @@ app.post("/github/callback", async (req, res) => {
         email: githubUser.email || "",
         password: "", // 소셜 로그인이라 비워둠
         nickname: githubUser.name || githubUser.login,
+        logintype: "Github",
       };
       db.data.users.push(user);
       await db.write();
@@ -96,7 +97,7 @@ app.post("/github/callback", async (req, res) => {
         id: user.id,
         nickname: user.nickname,
         username: user.username,
-        logintype: user.logintype,
+        logintype: "local", //user.logintype,
       },
     });
   } catch (err) {

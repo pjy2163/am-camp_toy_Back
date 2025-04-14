@@ -50,11 +50,20 @@
       "nickname": "test44"
     },
     {
-      "id": 1744339413858,
+      "id": 1744607004644,
+      "username": "116528883089648449217",
+      "email": "pjy2163@sookmyung.ac.kr",
+      "nickname": "박지영",
+      "password": "",
+      "logintype": "google"
+    },
+    {
+      "id": 1744607146691,
       "username": "pjy2163",
       "email": "",
       "password": "",
-      "nickname": "Jiyoung Park"
+      "nickname": "Jiyoung Park",
+      "logintype": "Github"
     }
   ]
 }
