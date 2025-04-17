@@ -1,6 +1,6 @@
-const mariadb = require("mysql");
+import mysql from "mysql2";
 
-const conn = mariadb.createConnection({
+const conn = mysql.createConnection({
   host: "localhost",
   port: 3306,
   user: "root",
@@ -8,4 +8,12 @@ const conn = mariadb.createConnection({
   database: "toy_board",
 });
 
-module.exports = conn;
+conn.connect((err) => {
+  if (err) {
+    console.error("MariaDB 연결 실패:", err);
+  } else {
+    console.log("MariaDB 연결 성공!");
+  }
+});
+
+export default conn;
