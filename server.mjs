@@ -1,11 +1,8 @@
 import mariadb from "./database/connect/mariadb.js";
 import express from "express";
 import bodyParser from "body-parser";
-// import { fileURLToPath } from "url";
-// import { dirname, join } from "path";
 import cors from "cors";
 import dotenv from "dotenv";
-import authRoutes from "./routes/auth.js";
 import cookieParser from "cookie-parser";
 
 dotenv.config();
@@ -17,10 +14,7 @@ app.use(bodyParser.json());
 app.use(express.json());
 app.use(cookieParser());
 
-// app.listen(9000, () => {
-//   console.log("서버실행중");
-// });
-
+// 깃허브 로그인
 app.post("/github/callback", async (req, res) => {
   const { code } = req.body;
 
@@ -56,38 +50,57 @@ app.post("/github/callback", async (req, res) => {
     });
     const githubUser = await userRes.json();
 
-    // 여기서 사용자 정보를 local DB에 저장하거나 로그인 처리
-    const existingUser = db.data.users.find(
-      (u) => u.username === githubUser.login
-    );
+    const checkSql = "SELECT * FROM users WHERE user_id = ?";
+    mariadb.query(checkSql, [githubUser.login], (err, results) => {
+      if (err) {
+        console.error("GitHub 사용자 조회 오류:", err);
+        return res.status(500).json({ error: "DB 오류" });
+      }
 
-    let user;
-    if (existingUser) {
-      user = existingUser;
-    } else {
-      user = {
-        id: Date.now(),
-        username: githubUser.login,
-        email: githubUser.email || "",
-        password: "", // 소셜 로그인이라 비워둠
-        nickname: githubUser.name || githubUser.login,
-        logintype: "Github",
-      };
-      db.data.users.push(user);
-      await db.write();
-    }
+      if (results.length > 0) {
+        const user = results[0];
+        return res.json({
+          success: true,
+          user: {
+            id: user.user_id,
+            nickname: user.user_name,
+            username: user.user_id,
+            logintype: user.logintype,
+          },
+        });
+      } else {
+        const insertSql = `
+          INSERT INTO users (user_id, user_name, email, password, logintype)
+          VALUES (?, ?, ?, '', 'github')
+        `;
+        mariadb.query(
+          insertSql,
+          [
+            githubUser.login,
+            githubUser.name || githubUser.login,
+            githubUser.email || "",
+          ],
+          (insertErr) => {
+            if (insertErr) {
+              console.error("GitHub 사용자 삽입 오류:", insertErr);
+              return res.status(500).json({ error: "회원 생성 실패" });
+            }
 
-    res.json({
-      success: true,
-      user: {
-        id: user.id,
-        nickname: user.nickname,
-        username: user.username,
-        logintype: "local", //user.logintype,
-      },
+            return res.json({
+              success: true,
+              user: {
+                id: githubUser.login,
+                nickname: githubUser.name || githubUser.login,
+                username: githubUser.login,
+                logintype: "github",
+              },
+            });
+          }
+        );
+      }
     });
   } catch (err) {
-    console.error(err);
+    console.error("GitHub 로그인 오류:", err);
     res.status(500).json({ success: false, error: "서버 오류" });
   }
 });
@@ -101,7 +114,7 @@ app.post("/register", async (req, res) => {
     return res.status(400).json({ error: "모든 필드를 입력해주세요." });
   }
 
-  const checkSql = "SELECT * FROM users WHERE username = ? OR email = ?";
+  const checkSql = "SELECT * FROM users WHERE user_id = ? OR email = ?";
   mariadb.query(checkSql, [username, email], (err, results) => {
     if (err) {
       console.error("조회 오류:", err);
