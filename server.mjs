@@ -13,6 +13,11 @@ import { log } from "console";
 
 dotenv.config();
 const app = express();
+
+// db연결 코드
+const mariadb = require("./database/connect/mariadb");
+mariadb.connect();
+
 app.use(cors({ origin: "http://localhost:3000", credentials: true })); //+쿠키관련
 app.use(bodyParser.json());
 
